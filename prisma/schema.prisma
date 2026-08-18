@@ -1,0 +1,93 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum PlanTier {
+  CORE_RETAINER
+  GROWTH_BUNDLE
+  CUSTOM_ENTERPRISE
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Client {
+  id              String             @id @default(cuid())
+  whopUserId      String             @unique
+  email           String             @unique
+  businessName    String
+  contactPhone    String
+  domainName      String?
+  cnameVerified   Boolean            @default(false)
+  plan            PlanTier           @default(CORE_RETAINER)
+  status          SubscriptionStatus @default(ACTIVE)
+  monthlyEditMin  Int                @default(60)
+  usedEditMin     Int                @default(0)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  websites  Website[]
+  tickets   EditTicket[]
+  leads     LeadCapture[]
+
+  @@index([whopUserId])
+  @@index([status])
+}
+
+model Website {
+  id            String   @id @default(cuid())
+  clientId      String
+  slug          String   @unique
+  previewUrl    String
+  productionUrl String?
+  niche         String
+  configJson    Json
+  speedScore    Int      @default(99)
+  isLive        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([slug])
+}
+
+model EditTicket {
+  id          String       @id @default(cuid())
+  clientId    String
+  title       String
+  description String
+  status      TicketStatus @default(OPEN)
+  slaDeadline DateTime
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model LeadCapture {
+  id            String   @id @default(cuid())
+  clientId      String
+  customerName  String
+  customerPhone String
+  serviceType   String?
+  smsSent       Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
