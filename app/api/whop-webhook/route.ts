@@ -1,21 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { evaluateWebhookRequest } from "@/lib/whop-webhook";
 import type { WhopWebhookEvent, ApiResponse } from "@/types/preview";
-
-const WHOP_WEBHOOK_SECRET = process.env.WHOP_WEBHOOK_SECRET;
-
-function verifyWebhookSignature(
-  _payload: string,
-  _signature: string | null
-): boolean {
-  if (!WHOP_WEBHOOK_SECRET) {
-    console.warn("WHOP_WEBHOOK_SECRET not set — skipping signature verification");
-    return true;
-  }
-  // TODO: Implement HMAC signature verification when Whop SDK provides the mechanism
-  return true;
-}
 
 export async function POST(
   request: NextRequest
@@ -24,51 +11,59 @@ export async function POST(
     const signature = request.headers.get("x-whop-signature");
     const rawBody = await request.text();
 
-    if (!verifyWebhookSignature(rawBody, signature)) {
+    const verification = evaluateWebhookRequest(request, rawBody, signature);
+    if (!verification.verified) {
       return NextResponse.json(
-        { success: false, error: "Invalid webhook signature" },
-        { status: 401 }
+        { success: false, error: verification.reason },
+        { status: verification.status }
       );
     }
 
-    const event = JSON.parse(rawBody) as WhopWebhookEvent;
+    let event: WhopWebhookEvent;
+    try {
+      event = JSON.parse(rawBody) as WhopWebhookEvent;
+    } catch {
+      return NextResponse.json(
+        { success: false, error: "Invalid JSON payload" },
+        { status: 400 }
+      );
+    }
 
-    if (!event.event || !event.data) {
+    if (!event.type || !event.data) {
       return NextResponse.json(
         { success: false, error: "Invalid webhook payload" },
         { status: 400 }
       );
     }
 
-    const { user_id, status } = event.data;
-
-    if (!user_id) {
+    const userId = event.data.user?.id;
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: "Missing user_id in webhook data" },
+        { success: false, error: "Missing user id in webhook data" },
         { status: 400 }
       );
     }
 
     let subscriptionStatus: "ACTIVE" | "PAST_DUE" | "CANCELED";
-    switch (status) {
-      case "active":
+    switch (event.type) {
+      case "membership.activated":
         subscriptionStatus = "ACTIVE";
         break;
-      case "past_due":
-        subscriptionStatus = "PAST_DUE";
-        break;
-      case "canceled":
+      case "membership.deactivated":
         subscriptionStatus = "CANCELED";
+        break;
+      case "membership.cancel_at_period_end_changed":
+        subscriptionStatus = event.data.status === "past_due" ? "PAST_DUE" : "ACTIVE";
         break;
       default:
         return NextResponse.json(
-          { success: false, error: `Unknown status: ${status}` },
+          { success: false, error: `Unknown event type: ${event.type}` },
           { status: 400 }
         );
     }
 
     const updatedClient = await prisma.client.update({
-      where: { whopUserId: user_id },
+      where: { whopUserId: userId },
       data: { status: subscriptionStatus },
     });
 
@@ -86,7 +81,7 @@ export async function POST(
       error.message.includes("Record to update not found")
     ) {
       return NextResponse.json(
-        { success: false, error: "Client not found for the given user_id" },
+        { success: false, error: "Client not found for the given user id" },
         { status: 404 }
       );
     }

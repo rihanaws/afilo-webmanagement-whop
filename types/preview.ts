@@ -31,13 +31,28 @@ export interface LeadIngestionPayload {
 }
 
 export interface WhopWebhookEvent {
-  event: string;
-  data: {
-    membership_id: string;
-    user_id: string;
-    status: "active" | "canceled" | "past_due";
-    plan_id: string;
-  };
+  id: string;
+  api_version: "v1";
+  data: WhopMembershipEventData;
+  timestamp: string;
+  type: "membership.activated" | "membership.deactivated" | "membership.cancel_at_period_end_changed";
+  company_id?: string | null;
+}
+
+export interface WhopMembershipEventData {
+  id: string;
+  cancel_at_period_end: boolean;
+  canceled_at: string | null;
+  status: "active" | "trialing" | "past_due" | "canceled" | "expired" | "completed";
+  user: {
+    id: string;
+    username: string | null;
+    email: string | null;
+  } | null;
+  plan: {
+    id: string;
+    title: string;
+  } | null;
 }
 
 export interface ApiResponse<T = unknown> {

@@ -24,6 +24,11 @@ enum TicketStatus {
   COMPLETED
 }
 
+enum LeadType {
+  INQUIRY
+  WAITLIST
+}
+
 model Client {
   id              String             @id @default(cuid())
   whopUserId      String             @unique
@@ -86,6 +91,7 @@ model LeadCapture {
   customerName  String
   customerPhone String
   serviceType   String?
+  leadType      LeadType @default(INQUIRY)
   smsSent       Boolean  @default(false)
   createdAt     DateTime @default(now())
 

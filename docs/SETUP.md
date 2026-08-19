@@ -44,9 +44,17 @@ TWILIO_ACCOUNT_SID="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 TWILIO_AUTH_TOKEN="your_auth_token_here"
 TWILIO_PHONE_NUMBER="+1234567890"
 
+# Upstash Redis (Rate Limiting)
+UPSTASH_REDIS_REST_URL="https://your-database.upstash.io"
+UPSTASH_REDIS_REST_TOKEN="your_rest_token"
+
 # Whop (Membership)
 WHOP_API_KEY="whop_xxxxxxxxxxxxxxxxxxxxxxxx"
 WHOP_APP_ID="your_whop_app_id"
+
+# Whop (Webhooks - optional in dev, required in production)
+# WHOP_WEBHOOK_SECRET="whsec_xxxxxxxxxxxxxxxxxxxxxxxx"
+# WHOP_WEBHOOK_ALLOWED_IPS="203.0.113.10,203.0.113.11"
 
 # Whop (Optional - Fast-Track Checkout)
 # NEXT_PUBLIC_WHOP_CORE_PLAN_ID="plan_9B7W0HkHBLinl"
@@ -80,6 +88,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `bun run db:push` | Push schema to database |
 | `bun run db:seed` | Seed database with test data |
 | `bun run db:studio` | Open Prisma Studio |
+| `bun run test` | Run the Vitest test suite (42 tests) |
 
 ## Testing the API
 

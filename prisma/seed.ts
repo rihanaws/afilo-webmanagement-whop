@@ -43,8 +43,47 @@ async function main() {
     },
   });
 
+  const existingLeads = await prisma.leadCapture.count({
+    where: { clientId: client.id },
+  });
+
+  if (existingLeads === 0) {
+    await prisma.leadCapture.createMany({
+      data: [
+        {
+          clientId: client.id,
+          customerName: "John Miller",
+          customerPhone: "+15125550199",
+          serviceType: "Emergency Drain Cleaning",
+          leadType: "INQUIRY",
+          smsSent: true,
+        },
+        {
+          clientId: client.id,
+          customerName: "Sarah Kim",
+          customerPhone: "+17325550144",
+          serviceType: "Water Heater Replacement",
+          leadType: "INQUIRY",
+          smsSent: false,
+        },
+        {
+          clientId: client.id,
+          customerName: "Apex Traders (Whop Queue)",
+          customerPhone: "whop_lead",
+          serviceType: "whop-queue:Trading / Finance:Increase Revenue",
+          leadType: "WAITLIST",
+          smsSent: false,
+        },
+      ],
+    });
+  }
+
   console.log("Seed successful!");
-  console.log({ clientId: client.id, websiteSlug: website.slug });
+  console.log({
+    clientId: client.id,
+    websiteSlug: website.slug,
+    leadCount: existingLeads,
+  });
 }
 
 main()

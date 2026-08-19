@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-08-19
+
+### Added
+
+- **Rate Limiting (Upstash Redis)**
+  - `@upstash/ratelimit` + `@upstash/redis` dependencies
+  - `lib/rate-limit.ts` with sliding-window limiters per endpoint
+  - `POST /api/leads` limited to 20 req / 10s per IP
+  - `POST /api/generate-blueprint` limited to 10 req / 10s per IP
+  - `429 Too Many Requests` responses with `Retry-After` + `x-ratelimit-*` headers
+
+- **Webhook Signature Verification & IP Allowlisting**
+  - `lib/whop-webhook.ts` with real HMAC-SHA256 verification (`crypto.timingSafeEqual`)
+  - Fail-closed behavior in production (401 when secret missing or signature invalid)
+  - Lax behavior in development (warn + skip when secret unset)
+  - `WHOP_WEBHOOK_ALLOWED_IPS` env var for webhook source IP allowlisting (403 when blocked)
+
+- **Lead Type Pipeline**
+  - `LeadType` enum (`INQUIRY | WAITLIST`) added to the `LeadCapture` model
+  - `POST /api/leads` classifies wizard waitlist signups (`whop_lead` phone or `leadType: WAITLIST`) and skips Twilio SMS dispatch for them
+  - Dashboard fetches `INQUIRY` leads only, keeping conversion stats clean
+  - Seed script now includes inquiry + waitlist sample leads
+
+- **Automated Testing (Vitest)**
+  - `vitest` dev dependency + `vitest.config.ts`
+  - `bun run test` / `bun run test:watch` scripts
+  - `lib/blueprint.ts` extracted pure logic (churn calc, blueprint synthesis, validation) for testability
+  - Test suites: SLA deadline (`lib/sla.test.ts`), webhook signature/IP (`lib/whop-webhook.test.ts`), blueprint generation (`lib/blueprint.test.ts`), rate limiting (`lib/rate-limit.test.ts`) — 42 tests
+
+### Changed
+
+- `app/api/whop-webhook/route.ts` - Rewritten for SDK v0.0.42 payload shape (`type` + `data.user.id` + `data.status`), HMAC verification, and IP allowlisting
+- `app/api/generate-blueprint/route.ts` - Now a thin route handler importing `lib/blueprint.ts`; rate-limited
+- `app/api/leads/route.ts` - Added rate limiting + WAITLIST classification
+- `lib/portal-data.ts` - Fetches `leadType: "INQUIRY"` leads only
+- `lib/sla.ts` - Deadline calculation now UTC-deterministic
+- `types/preview.ts` - `WhopWebhookEvent` rewritten to match SDK v0.0.42 event shape
+
+### Security
+
+- `WHOP_WEBHOOK_SECRET` now required in production (fail-closed signature enforcement)
+- Webhook IP allowlisting enforced via `WHOP_WEBHOOK_ALLOWED_IPS`
+- Public endpoints rate-limited to prevent abuse
+- Waitlist leads no longer trigger SMS dispatch to contractors
+
+### Documentation
+
+- `docs/API_REFERENCE.md` - Added `/api/client/onboarding` and `/api/tickets`; rewrote webhook section for SDK v0.0.42; documented `429` responses and `leadType`
+- `docs/ARCHITECTURE.md` - Updated directory tree, models (`EditTicket.category`/`urgent`, `LeadCapture.leadType`), flows, and env vars
+- `docs/DEPLOYMENT.md` - Corrected webhook event subscriptions; added Upstash + IP allowlist env vars
+- `docs/SECURITY.md` - Documented enforced rate limiting, HMAC verification, IP allowlisting, and required prod secrets
+
+---
+
 ## [1.1.0] - 2026-08-19
 
 ### Added

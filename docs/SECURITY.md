@@ -16,7 +16,8 @@ Afilo takes security seriously. This document outlines security measures and bes
 
 - API routes validate input data
 - Database queries are parameterized (Prisma ORM)
-- Rate limiting should be implemented for production
+- **Rate limiting is enforced** on public POST endpoints (`/api/leads`, `/api/generate-blueprint`) via Upstash Redis sliding-window limiters (`lib/rate-limit.ts`). Exceeded requests receive `429` with `Retry-After: 10`.
+- Onboarding and ticket routes require a client identity (`clientId` or `x-whop-user-id` header)
 
 ## Data Protection
 
@@ -30,12 +31,13 @@ Afilo takes security seriously. This document outlines security measures and bes
 
 - API keys are never committed to git (`.env*` files are ignored)
 - Twilio credentials are loaded at runtime
-- Whop webhook signatures are verified
+- Whop webhook signatures are verified with HMAC-SHA256 (`crypto.timingSafeEqual`)
 
 ### PII Handling
 
 - Customer phone numbers are stored for SMS dispatch
 - Customer names are stored for lead tracking
+- Wizard waitlist signups use the placeholder `whop_lead` phone and are stored as `leadType: WAITLIST` without SMS dispatch
 - Data is not shared with third parties
 
 ## Environment Variables
@@ -47,8 +49,11 @@ Afilo takes security seriously. This document outlines security measures and bes
 | `DATABASE_URL` | Neon connection string | Critical |
 | `TWILIO_ACCOUNT_SID` | Twilio account SID | High |
 | `TWILIO_AUTH_TOKEN` | Twilio auth token | Critical |
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST URL | High |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token | Critical |
 | `WHOP_API_KEY` | Whop API key | High |
-| `WHOP_WEBHOOK_SECRET` | Webhook signature secret | High |
+| `WHOP_WEBHOOK_SECRET` | Webhook signature secret (required in production) | High |
+| `WHOP_WEBHOOK_ALLOWED_IPS` | Webhook source IP allowlist (optional) | Medium |
 
 ### Best Practices
 
@@ -108,12 +113,15 @@ const nextConfig: NextConfig = {
 
 ### Signature Verification
 
-Whop webhooks include a signature header:
+Whop webhooks include a signature header. Verification lives in `lib/whop-webhook.ts`:
 
 ```typescript
-// app/api/whop-webhook/route.ts
+import { createHmac, timingSafeEqual } from "node:crypto";
+
 const signature = request.headers.get("x-whop-signature");
-if (!verifyWebhookSignature(rawBody, signature)) {
+const rawBody = await request.text();
+
+if (!verifyWhopWebhookSignature(rawBody, signature, secret)) {
   return NextResponse.json(
     { success: false, error: "Invalid webhook signature" },
     { status: 401 }
@@ -121,9 +129,13 @@ if (!verifyWebhookSignature(rawBody, signature)) {
 }
 ```
 
+**Enforcement behavior:**
+- **Production:** `WHOP_WEBHOOK_SECRET` is required. Missing secret, missing signature, or a mismatched HMAC-SHA256 digest returns `401`.
+- **Development:** When the secret is unset, verification is skipped so local curl testing works (a warning is logged).
+
 ### IP Whitelisting
 
-Consider whitelisting Whop's IP addresses in production.
+Whop's production delivery IPs can be restricted via `WHOP_WEBHOOK_ALLOWED_IPS` (comma-separated). The webhook route checks `x-forwarded-for` / `x-real-ip` and returns `403` when the source IP is not in the allowlist. When the variable is unset, IP checking is skipped (with a startup warning) so local development is unaffected.
 
 ## Database Security
 
@@ -194,11 +206,12 @@ Set up alerts for:
 
 ## Security Checklist
 
-- [ ] Environment variables are secure
-- [ ] Database connections use SSL
-- [ ] API input is validated
-- [ ] Errors are handled securely
-- [ ] Webhooks are verified
-- [ ] Sensitive data is not logged
+- [x] Environment variables are secure
+- [x] Database connections use SSL
+- [x] API input is validated
+- [x] Errors are handled securely
+- [x] Webhooks are verified (HMAC-SHA256 + optional IP allowlist)
+- [x] Rate limiting enforced on public POST endpoints
+- [x] Sensitive data is not logged
 - [ ] Dependencies are up to date
 - [ ] Access controls are in place

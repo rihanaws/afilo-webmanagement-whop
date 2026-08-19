@@ -2,15 +2,20 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getTwilioClientOrThrow } from "@/lib/twilio";
+import { applyRateLimit, ratelimitLeads } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitResponse = await applyRateLimit(request, ratelimitLeads);
+    if (rateLimitResponse) return rateLimitResponse;
+
     const body = await request.json();
 
     const clientSlug = body.clientSlug || body.slug;
     const customerName = body.customerName || body.name;
     const customerPhone = body.customerPhone || body.phone;
     const serviceType = body.serviceType || body.service || "General Inquiry";
+    const leadType = body.leadType === "WAITLIST" ? "WAITLIST" : "INQUIRY";
 
     if (!clientSlug || !customerName || !customerPhone) {
       return NextResponse.json(
@@ -41,41 +46,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const isWaitlist = leadType === "WAITLIST" || customerPhone === "whop_lead";
+
     const lead = await prisma.leadCapture.create({
       data: {
         clientId: website.clientId,
         customerName,
         customerPhone,
         serviceType,
+        leadType: isWaitlist ? "WAITLIST" : "INQUIRY",
         smsSent: false,
       },
     });
 
     let smsSent = false;
-    const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
-    if (twilioPhoneNumber && website.client.contactPhone) {
-      try {
-        const twilioClient = getTwilioClientOrThrow();
-        await twilioClient.messages.create({
-          body: `New Lead for ${website.client.businessName}!\nName: ${customerName}\nPhone: ${customerPhone}\nService: ${serviceType}\nTap to call back immediately.`,
-          from: twilioPhoneNumber,
-          to: website.client.contactPhone,
-        });
-        smsSent = true;
+    if (!isWaitlist) {
+      const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
-        await prisma.leadCapture.update({
-          where: { id: lead.id },
-          data: { smsSent: true },
-        });
-      } catch (smsError) {
-        console.error("Twilio SMS dispatch failed:", smsError);
+      if (twilioPhoneNumber && website.client.contactPhone) {
+        try {
+          const twilioClient = getTwilioClientOrThrow();
+          await twilioClient.messages.create({
+            body: `New Lead for ${website.client.businessName}!\nName: ${customerName}\nPhone: ${customerPhone}\nService: ${serviceType}\nTap to call back immediately.`,
+            from: twilioPhoneNumber,
+            to: website.client.contactPhone,
+          });
+          smsSent = true;
+
+          await prisma.leadCapture.update({
+            where: { id: lead.id },
+            data: { smsSent: true },
+          });
+        } catch (smsError) {
+          console.error("Twilio SMS dispatch failed:", smsError);
+        }
       }
     }
 
     return NextResponse.json({
       success: true,
       leadId: lead.id,
+      leadType: isWaitlist ? "WAITLIST" : "INQUIRY",
       smsDispatched: smsSent,
     });
   } catch (error) {

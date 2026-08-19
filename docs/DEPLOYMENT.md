@@ -29,10 +29,17 @@ TWILIO_ACCOUNT_SID="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 TWILIO_AUTH_TOKEN="your_auth_token_here"
 TWILIO_PHONE_NUMBER="+1234567890"
 
+# Upstash Redis (rate limiting - required for public POST endpoints)
+UPSTASH_REDIS_REST_URL="https://your-database.upstash.io"
+UPSTASH_REDIS_REST_TOKEN="your_rest_token"
+
 # Whop
 WHOP_API_KEY="whop_xxxxxxxxxxxxxxxxxxxxxxxx"
 WHOP_APP_ID="your_whop_app_id"
-WHOP_WEBHOOK_SECRET="your_whop_webhook_secret"
+# Required in production - the app returns 401 for webhooks when this is missing
+WHOP_WEBHOOK_SECRET="whsec_xxxxxxxxxxxxxxxxxxxxxxxx"
+# Comma-separated IP allowlist for Whop webhook delivery (recommended for prod)
+WHOP_WEBHOOK_ALLOWED_IPS="203.0.113.10,203.0.113.11"
 
 # Whop Fast-Track Checkout (optional)
 NEXT_PUBLIC_WHOP_CORE_PLAN_ID="plan_9B7W0HkHBLinl"
@@ -133,8 +140,12 @@ DATABASE_URL="your_production_url" bun run db:seed
 1. Go to Whop Dashboard → Settings → Webhooks
 2. Add a new webhook:
    - URL: `https://afilo.io/api/whop-webhook`
-   - Events: membership.updated, membership.canceled
-3. Copy the webhook secret to `WHOP_WEBHOOK_SECRET`
+   - Events: `membership.activated`, `membership.deactivated`, `membership.cancel_at_period_end_changed`
+3. Copy the webhook secret to `WHOP_WEBHOOK_SECRET` (required in production)
+4. Configure `WHOP_WEBHOOK_ALLOWED_IPS` with Whop's delivery IP range to enforce IP allowlisting
+5. Verify signatures: Whop signs every payload with HMAC-SHA256 in the `x-whop-signature` header
+
+> **Note:** The app returns `401` when `WHOP_WEBHOOK_SECRET` is missing or the signature is invalid in production, and `403` when the source IP is not in `WHOP_WEBHOOK_ALLOWED_IPS`.
 
 ## Monitoring
 

@@ -31,10 +31,15 @@ Afilo is a high-performance web system for local service contractors (HVAC, plum
 afilo-webmanagement-whop/
 ├── app/                              # Next.js App Router
 │   ├── api/
-│   │   ├── leads/route.ts            # Lead ingestion + SMS dispatch
-│   │   ├── whop-webhook/route.ts     # Whop membership sync
-│   │   └── generate-blueprint/route.ts # Churn calculator + blueprint gen
-│   ├── dashboard/page.tsx            # Client portal
+│   │   ├── leads/route.ts            # Lead ingestion + SMS dispatch (INQUIRY/WAITLIST)
+│   │   ├── whop-webhook/route.ts     # Whop membership sync (HMAC-verified)
+│   │   ├── generate-blueprint/route.ts # Churn calculator + blueprint gen
+│   │   ├── client/onboarding/route.ts  # Client intake updates
+│   │   └── tickets/route.ts          # SLA edit ticket submission
+│   ├── dashboard/
+│   │   ├── page.tsx                  # Client ops portal
+│   │   ├── [companyId]/page.tsx      # Per-company ops portal
+│   │   └── admin/page.tsx            # Multi-client admin overview
 │   ├── experiences/[experienceId]/page.tsx # Whop wizard page
 │   ├── layout.tsx                    # Root layout
 │   ├── page.tsx                      # Landing page
@@ -44,12 +49,20 @@ afilo-webmanagement-whop/
 │   ├── whop-wizard/                  # Interactive wizard engine
 │   │   ├── whop-wizard-engine.tsx    # 9-step wizard client component
 │   │   └── index.ts                  # Barrel export
+│   ├── dashboard-portal.tsx          # Shared client ops portal layout
 │   ├── onboarding-intake-form.tsx
-│   └── lead-activity-table.tsx
+│   ├── lead-activity-table.tsx
+│   └── edit-ticket-modal.tsx
 ├── lib/
 │   ├── prisma.ts                     # Prisma Client singleton
 │   ├── twilio.ts                     # Twilio client
-│   └── whop.ts                       # Whop SDK client
+│   ├── whop.ts                       # Whop SDK client
+│   ├── whop-webhook.ts               # HMAC signature + IP allowlist verification
+│   ├── rate-limit.ts                 # Upstash rate limiters
+│   ├── blueprint.ts                  # Churn calc + blueprint synthesis (pure logic)
+│   ├── sla.ts                        # 48-business-hour deadline calculation
+│   ├── resolve-client.ts             # clientId / x-whop-user-id resolution
+│   └── portal-data.ts                # Dashboard data fetching
 ├── prisma/
 │   ├── schema.prisma                 # Database schema
 │   ├── seed.ts                       # Database seed script
@@ -57,6 +70,7 @@ afilo-webmanagement-whop/
 ├── types/
 │   └── preview.ts                    # TypeScript interfaces
 ├── docs/                             # Documentation
+├── vitest.config.ts                  # Test configuration
 ├── proxy.ts                          # Next.js middleware (NOT middleware.ts)
 └── prisma.config.ts                  # Prisma CLI configuration
 ```
@@ -145,6 +159,8 @@ NEON_PROJECT_ID       # Neon project ID
 TWILIO_ACCOUNT_SID    # Twilio account SID
 TWILIO_AUTH_TOKEN     # Twilio auth token
 TWILIO_PHONE_NUMBER   # Twilio phone number
+UPSTASH_REDIS_REST_URL    # Upstash Redis REST URL (rate limiting)
+UPSTASH_REDIS_REST_TOKEN  # Upstash Redis REST token
 WHOP_API_KEY          # Whop API key
 WHOP_APP_ID           # Whop app ID
 ```
@@ -153,7 +169,8 @@ Optional variables:
 
 ```bash
 NEXT_PUBLIC_WHOP_CORE_PLAN_ID  # Whop plan ID for fast-track checkout
-WHOP_WEBHOOK_SECRET            # Whop webhook signature secret
+WHOP_WEBHOOK_SECRET            # Whop webhook signature secret (required in production)
+WHOP_WEBHOOK_ALLOWED_IPS       # Comma-separated webhook source IP allowlist
 ```
 
 ## Common Tasks
@@ -224,6 +241,9 @@ curl -X POST http://localhost:3000/api/leads \
 # TypeScript check
 bunx tsc --noEmit
 
+# Unit tests (42 tests)
+bun run test
+
 # Build check
 bun run build
 ```
@@ -234,7 +254,8 @@ bun run build
 2. Use environment variables for secrets
 3. Validate all input data
 4. Use parameterized queries (Prisma)
-5. Verify webhook signatures
+5. Verify webhook signatures (HMAC-SHA256 in `lib/whop-webhook.ts`)
+6. Public POST endpoints are rate-limited via `lib/rate-limit.ts` (Upstash)
 
 ## Performance
 

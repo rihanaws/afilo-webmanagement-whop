@@ -11,7 +11,7 @@ export async function fetchClientPortalData(clientId: string) {
       },
     }),
     prisma.leadCapture.findMany({
-      where: { clientId },
+      where: { clientId, leadType: "INQUIRY" },
       orderBy: { createdAt: "desc" },
       take: 100,
     }),

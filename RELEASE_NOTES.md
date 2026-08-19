@@ -1,5 +1,37 @@
 # Release Notes
 
+## v1.2.0 (2026-08-19)
+
+**Security Hardening & Client Ops Tooling**
+
+### What's New
+
+- **Client Operations Portal** - New dashboard at `/dashboard` (current client), `/dashboard/[companyId]`, and `/dashboard/admin` with intake form, lead activity table, and edit ticket submission
+- **SLA Edit Tickets** - 48-business-hour SLA deadlines with monthly edit allowance enforcement (`/api/tickets`)
+- **Rate Limiting** - Upstash Redis sliding-window limits on `/api/leads` (20/10s) and `/api/generate-blueprint` (10/10s)
+- **Webhook Verification** - Real HMAC-SHA256 signature verification (`lib/whop-webhook.ts`) + optional IP allowlisting (`WHOP_WEBHOOK_ALLOWED_IPS`)
+- **Waitlist Pipeline** - `LeadType` enum (`INQUIRY | WAITLIST`); wizard waitlist signups no longer dispatch SMS
+- **Automated Tests** - 42 Vitest tests covering SLA, webhook, blueprint, and rate-limit logic (`bun run test`)
+
+### Endpoint Changes
+
+| Endpoint | Method | Change |
+|----------|--------|--------|
+| `/api/leads` | POST | + rate limit, `leadType` classification |
+| `/api/whop-webhook` | POST | HMAC verification + IP allowlist, SDK v0.0.42 payload |
+| `/api/generate-blueprint` | POST | + rate limit, logic moved to `lib/blueprint.ts` |
+| `/api/client/onboarding` | POST | New |
+| `/api/tickets` | POST | New |
+
+### New Environment Variables
+
+- `UPSTASH_REDIS_REST_URL` - Upstash Redis REST URL (required for rate limiting)
+- `UPSTASH_REDIS_REST_TOKEN` - Upstash Redis REST token (required)
+- `WHOP_WEBHOOK_SECRET` - Webhook signature secret (required in production)
+- `WHOP_WEBHOOK_ALLOWED_IPS` - Comma-separated webhook source IP allowlist (optional)
+
+---
+
 ## v1.1.0 (2026-08-19)
 
 **Whop Interactive App Experience**
