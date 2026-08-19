@@ -23,34 +23,82 @@ Afilo is a productized B2B digital infrastructure agency that replaces slow, out
 
 ```
 afilo-webmanagement-whop/
-├── app/                          # Next.js App Router
+├── app/                              # Next.js App Router
 │   ├── api/
-│   │   ├── leads/route.ts        # Lead ingestion + SMS dispatch
-│   │   ├── whop-webhook/route.ts # Whop membership sync
-│   │   └── generate-blueprint/route.ts # AI proposal generator
-│   ├── dashboard/page.tsx        # Client portal
-│   ├── experiences/[experienceId]/page.tsx # Assessment wizard
-│   ├── layout.tsx                # Root layout
-│   ├── page.tsx                  # Landing page
-│   └── globals.css               # Tailwind v4 theme
+│   │   ├── leads/route.ts            # Lead ingestion + SMS dispatch
+│   │   ├── whop-webhook/route.ts     # Whop membership sync
+│   │   └── generate-blueprint/route.ts # Churn calculator + blueprint gen
+│   ├── dashboard/page.tsx            # Client portal
+│   ├── experiences/[experienceId]/page.tsx # Whop wizard page
+│   ├── layout.tsx                    # Root layout
+│   ├── page.tsx                      # Landing page
+│   └── globals.css                   # Tailwind v4 theme
 ├── components/
-│   ├── ui/                       # Primitive UI components
+│   ├── ui/                           # Primitive UI components
+│   ├── whop-wizard/                  # Interactive wizard engine
+│   │   ├── whop-wizard-engine.tsx    # 9-step wizard client component
+│   │   └── index.ts                  # Barrel export
 │   ├── onboarding-intake-form.tsx
 │   └── lead-activity-table.tsx
 ├── lib/
-│   ├── prisma.ts                 # Prisma Client singleton
-│   ├── twilio.ts                 # Twilio client
-│   └── whop.ts                   # Whop SDK client
+│   ├── prisma.ts                     # Prisma Client singleton
+│   ├── twilio.ts                     # Twilio client
+│   └── whop.ts                       # Whop SDK client
 ├── prisma/
-│   ├── schema.prisma             # Database schema
-│   └── seed.ts                   # Database seed script
+│   ├── schema.prisma                 # Database schema
+│   └── seed.ts                       # Database seed script
 ├── types/
-│   └── preview.ts                # TypeScript interfaces
-├── proxy.ts                      # Next.js middleware
-└── prisma.config.ts              # Prisma configuration
+│   └── preview.ts                    # TypeScript interfaces
+├── proxy.ts                          # Next.js middleware
+└── prisma.config.ts                  # Prisma configuration
 ```
 
 ## Data Flow
+
+### Wizard Blueprint Generation Flow
+
+```
+1. User completes steps 1-7 of the wizard
+   ↓
+2. User reaches step 8 (Blueprint Selection)
+   ↓
+3. useEffect fires POST /api/generate-blueprint with FunnelState
+   ↓
+4. Route validates all fields (returns 400 on invalid)
+   ↓
+5. Calculates churn metrics:
+   annualLoss = memberCount × pricePerMonth × 0.12 × 12
+   monthlyLoss = annualLoss / 12
+   ↓
+6. Synthesizes 3 BlueprintOption objects from:
+   NICHE_BLUEPRINT_TEMPLATES (6 niches × 3 options)
+   GOAL_MODIFIERS (6 primary goals)
+   appIdea injection into whyItFits
+   ↓
+7. Returns GenerateBlueprintResponse with status 200
+   ↓
+8. Wizard renders 3 selectable blueprint cards
+```
+
+### Wizard Conversion Gate Flow
+
+```
+1. User selects a blueprint on step 8
+   ↓
+2. User advances to step 9 (Conversion Gate)
+   ↓
+3. Primary CTA: "Skip the Line (Fast-Track in 3 Days)"
+   → routes to Whop checkout (plan_9B7W0HkHBLinl or NEXT_PUBLIC_WHOP_CORE_PLAN_ID)
+   ↓
+4. Secondary CTA: "I'll wait — keep my free spot"
+   → POST /api/leads with:
+   clientSlug: experienceId
+   customerName: communityName || "Whop Community Lead"
+   customerPhone: "whop_lead"
+   serviceType: `whop-queue:${niche}:${primaryGoal}`
+   ↓
+5. Confirmation modal displayed
+```
 
 ### Lead Capture Flow
 
@@ -154,7 +202,41 @@ Receives Whop webhook events for membership sync.
 
 ### POST /api/generate-blueprint
 
-Generates a website blueprint based on business info.
+Calculates churn metrics and synthesizes 3 contextual blueprint options.
+
+**Request:**
+```json
+{
+  "communityName": "Apex Traders",
+  "niche": "Trading / Finance",
+  "memberCount": 500,
+  "pricePerMonth": 25,
+  "primaryGoal": "Increase Revenue",
+  "appIdea": "Trading performance dashboard",
+  "launchTimeline": "ASAP / within 1 week"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "churnMetrics": {
+    "annualLoss": 18000,
+    "monthlyLoss": 1500
+  },
+  "blueprints": [
+    {
+      "id": "option_a",
+      "badge": "Operations",
+      "title": "Portfolio Operations Hub",
+      "tagline": "Consolidate all your trading accounts...",
+      "features": ["..."],
+      "whyItFits": "..."
+    }
+  ]
+}
+```
 
 ## Environment Variables
 
@@ -169,5 +251,6 @@ Generates a website blueprint based on business info.
 | `WHOP_API_KEY` | Yes | Whop API key |
 | `WHOP_APP_ID` | Yes | Whop app ID |
 | `WHOP_WEBHOOK_SECRET` | No | Whop webhook signature secret |
+| `NEXT_PUBLIC_WHOP_CORE_PLAN_ID` | No | Whop plan ID for fast-track checkout |
 | `NEXT_PUBLIC_APP_URL` | No | App URL (default: http://localhost:3000) |
 | `NEXT_PUBLIC_PREVIEW_BASE_URL` | No | Preview base URL |

@@ -34,6 +34,9 @@ WHOP_API_KEY="whop_xxxxxxxxxxxxxxxxxxxxxxxx"
 WHOP_APP_ID="your_whop_app_id"
 WHOP_WEBHOOK_SECRET="your_whop_webhook_secret"
 
+# Whop Fast-Track Checkout (optional)
+NEXT_PUBLIC_WHOP_CORE_PLAN_ID="plan_9B7W0HkHBLinl"
+
 # Application
 NEXT_PUBLIC_APP_URL="https://afilo.io"
 NEXT_PUBLIC_PREVIEW_BASE_URL="https://preview.afilo.io"

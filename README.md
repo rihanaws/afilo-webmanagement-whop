@@ -24,6 +24,8 @@ Afilo replaces slow, outdated websites for local service contractors (HVAC, plum
 - **Instant SMS Lead Routing** - Twilio-powered lead dispatch
 - **Client Portal** - Embedded in Whop ecosystem
 - **Whop Integration** - Membership and billing management
+- **Interactive Assessment Wizard** - 8-step churn calculator + blueprint generator
+- **Conversion Funnel** - Skip-the-line fast-track vs. free queue monetization
 
 ## Tech Stack
 
@@ -87,32 +89,35 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ```
 afilo-webmanagement-whop/
-├── app/                          # Next.js App Router
+├── app/                              # Next.js App Router
 │   ├── api/
-│   │   ├── leads/route.ts        # Lead ingestion + SMS dispatch
-│   │   ├── whop-webhook/route.ts # Whop membership sync
-│   │   └── generate-blueprint/route.ts
-│   ├── dashboard/page.tsx        # Client portal
-│   ├── experiences/[id]/page.tsx # Assessment wizard
-│   ├── layout.tsx                # Root layout
-│   ├── page.tsx                  # Landing page
-│   └── globals.css               # Tailwind v4 theme
+│   │   ├── leads/route.ts            # Lead ingestion + SMS dispatch
+│   │   ├── whop-webhook/route.ts     # Whop membership sync
+│   │   └── generate-blueprint/route.ts # Churn calculator + blueprint gen
+│   ├── dashboard/page.tsx            # Client portal
+│   ├── experiences/[experienceId]/page.tsx # Whop wizard page
+│   ├── layout.tsx                    # Root layout
+│   ├── page.tsx                      # Landing page
+│   └── globals.css                   # Tailwind v4 theme
 ├── components/
-│   ├── ui/                       # Primitive UI components
+│   ├── ui/                           # Primitive UI components
+│   ├── whop-wizard/                  # Interactive wizard engine
+│   │   ├── whop-wizard-engine.tsx    # 9-step wizard client component
+│   │   └── index.ts                  # Barrel export
 │   ├── onboarding-intake-form.tsx
 │   └── lead-activity-table.tsx
 ├── lib/
-│   ├── prisma.ts                 # Prisma Client singleton
-│   ├── twilio.ts                 # Twilio client
-│   └── whop.ts                   # Whop SDK client
+│   ├── prisma.ts                     # Prisma Client singleton
+│   ├── twilio.ts                     # Twilio client
+│   └── whop.ts                       # Whop SDK client
 ├── prisma/
-│   ├── schema.prisma             # Database schema
-│   └── seed.ts                   # Database seed script
+│   ├── schema.prisma                 # Database schema
+│   └── seed.ts                       # Database seed script
 ├── types/
-│   └── preview.ts                # TypeScript interfaces
-├── docs/                         # Documentation
-├── proxy.ts                      # Next.js middleware
-└── prisma.config.ts              # Prisma configuration
+│   └── preview.ts                    # TypeScript interfaces
+├── docs/                             # Documentation
+├── proxy.ts                          # Next.js middleware
+└── prisma.config.ts                  # Prisma configuration
 ```
 
 ## API Endpoints
@@ -121,7 +126,21 @@ afilo-webmanagement-whop/
 |--------|----------|-------------|
 | POST | `/api/leads` | Ingest lead + dispatch SMS |
 | POST | `/api/whop-webhook` | Whop membership sync |
-| POST | `/api/generate-blueprint` | Generate website blueprint |
+| POST | `/api/generate-blueprint` | Churn calculator + blueprint generation |
+
+## Interactive Wizard
+
+The Whop Interactive App Experience runs at `/experiences/[experienceId]` and includes:
+
+1. **Community Info** - Collects community name
+2. **Niche Selector** - 6 category tiles (SaaS, Trading, Reselling, Coaching, Sports Betting, Gaming)
+3. **Member Count** - Slider (10-10,000+) with numeric input
+4. **Price per Month** - Slider ($5-$500+) with numeric input
+5. **Churn Anchor** - Animated revenue loss calculator (`$X,XXX/year`)
+6. **Primary Goal** - 6 goal buttons + optional app idea textarea
+7. **Launch Timeline** - 3 options (ASAP, 1 month, 2+ months)
+8. **Blueprint Selection** - 3 AI-tailored options fetched from API
+9. **Conversion Gate** - Skip-the-line checkout vs. free queue
 
 ## Documentation
 

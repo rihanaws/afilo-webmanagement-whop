@@ -9,6 +9,8 @@ Afilo is a high-performance web system for local service contractors (HVAC, plum
 - $200/mo managed retainer
 - Instant SMS lead routing
 - Client portal embedded in Whop ecosystem
+- Interactive assessment wizard with churn calculator and blueprint generation
+- Monetization funnel (Skip-the-Line fast-track vs. free queue)
 
 ## Tech Stack
 
@@ -27,33 +29,36 @@ Afilo is a high-performance web system for local service contractors (HVAC, plum
 
 ```
 afilo-webmanagement-whop/
-├── app/                          # Next.js App Router
+├── app/                              # Next.js App Router
 │   ├── api/
-│   │   ├── leads/route.ts        # Lead ingestion + SMS dispatch
-│   │   ├── whop-webhook/route.ts # Whop membership sync
-│   │   └── generate-blueprint/route.ts
-│   ├── dashboard/page.tsx        # Client portal
-│   ├── experiences/[id]/page.tsx # Assessment wizard
-│   ├── layout.tsx                # Root layout
-│   ├── page.tsx                  # Landing page
-│   └── globals.css               # Tailwind v4 theme
+│   │   ├── leads/route.ts            # Lead ingestion + SMS dispatch
+│   │   ├── whop-webhook/route.ts     # Whop membership sync
+│   │   └── generate-blueprint/route.ts # Churn calculator + blueprint gen
+│   ├── dashboard/page.tsx            # Client portal
+│   ├── experiences/[experienceId]/page.tsx # Whop wizard page
+│   ├── layout.tsx                    # Root layout
+│   ├── page.tsx                      # Landing page
+│   └── globals.css                   # Tailwind v4 theme
 ├── components/
-│   ├── ui/                       # Primitive UI components
+│   ├── ui/                           # Primitive UI components
+│   ├── whop-wizard/                  # Interactive wizard engine
+│   │   ├── whop-wizard-engine.tsx    # 9-step wizard client component
+│   │   └── index.ts                  # Barrel export
 │   ├── onboarding-intake-form.tsx
 │   └── lead-activity-table.tsx
 ├── lib/
-│   ├── prisma.ts                 # Prisma Client singleton
-│   ├── twilio.ts                 # Twilio client
-│   └── whop.ts                   # Whop SDK client
+│   ├── prisma.ts                     # Prisma Client singleton
+│   ├── twilio.ts                     # Twilio client
+│   └── whop.ts                       # Whop SDK client
 ├── prisma/
-│   ├── schema.prisma             # Database schema
-│   ├── seed.ts                   # Database seed script
-│   └── config.ts                 # Prisma configuration
+│   ├── schema.prisma                 # Database schema
+│   ├── seed.ts                       # Database seed script
+│   └── config.ts                     # Prisma configuration
 ├── types/
-│   └── preview.ts                # TypeScript interfaces
-├── docs/                         # Documentation
-├── proxy.ts                      # Next.js middleware (NOT middleware.ts)
-└── prisma.config.ts              # Prisma CLI configuration
+│   └── preview.ts                    # TypeScript interfaces
+├── docs/                             # Documentation
+├── proxy.ts                          # Next.js middleware (NOT middleware.ts)
+└── prisma.config.ts                  # Prisma CLI configuration
 ```
 
 ## Code Standards
@@ -74,9 +79,9 @@ afilo-webmanagement-whop/
    export default async function Page({
      params,
    }: {
-     params: Promise<{ id: string }>;
+     params: Promise<{ experienceId: string }>;
    }) {
-     const { id } = await params;
+     const { experienceId } = await params;
    }
    ```
 
@@ -90,6 +95,17 @@ afilo-webmanagement-whop/
 2. **Error Handling** - Use try/catch with descriptive errors
 3. **Input Validation** - Validate all request body fields
 4. **Type Safety** - Use TypeScript interfaces for payloads
+
+### Wizard Blueprint Generation
+
+1. **Churn Formula** - Deterministic calculation:
+   ```typescript
+   const annualLoss = Math.round(memberCount * pricePerMonth * 0.12 * 12);
+   const monthlyLoss = Math.round(annualLoss / 12);
+   ```
+2. **Blueprint Matrix** - `NICHE_BLUEPRINT_TEMPLATES` maps 6 niches × 3 options
+3. **Goal Modifiers** - `GOAL_MODIFIERS` transforms feature lists per `PrimaryGoal`
+4. **App Idea Injection** - `funnelState.appIdea` is appended to `whyItFits` when provided
 
 ### Prisma 7
 
@@ -108,6 +124,7 @@ afilo-webmanagement-whop/
 1. **Tailwind v4** - Use `@theme` block in `globals.css`
 2. **Design Tokens** - Use CSS custom properties
 3. **Components** - Use `clsx` and `tailwind-merge`
+4. **Client Components** - Use `cn()` utility from `clsx` + `tailwind-merge`
 
 ## File Naming Conventions
 
@@ -130,6 +147,13 @@ TWILIO_AUTH_TOKEN     # Twilio auth token
 TWILIO_PHONE_NUMBER   # Twilio phone number
 WHOP_API_KEY          # Whop API key
 WHOP_APP_ID           # Whop app ID
+```
+
+Optional variables:
+
+```bash
+NEXT_PUBLIC_WHOP_CORE_PLAN_ID  # Whop plan ID for fast-track checkout
+WHOP_WEBHOOK_SECRET            # Whop webhook signature secret
 ```
 
 ## Common Tasks
@@ -156,6 +180,13 @@ WHOP_APP_ID           # Whop app ID
 3. Use forwardRef for DOM elements
 4. Export from `components/ui/index.ts` if needed
 
+### Modifying the Wizard
+
+1. Wizard state lives in `components/whop-wizard/whop-wizard-engine.tsx`
+2. Steps are numbered 1-9 (9 is the conversion gate)
+3. Blueprint fetching happens on step 8 transition via `useEffect`
+4. Lead logging posts to `/api/leads` with `serviceType: whop-queue:<niche>:<goal>`
+
 ### Database Changes
 
 1. Update `prisma/schema.prisma`
@@ -168,15 +199,23 @@ WHOP_APP_ID           # Whop app ID
 ### API Testing
 
 ```bash
+# Test blueprint generation (Whop wizard payload)
+curl -X POST http://localhost:3000/api/generate-blueprint \
+  -H "Content-Type: application/json" \
+  -d '{
+    "communityName": "Apex Traders",
+    "niche": "Trading / Finance",
+    "memberCount": 500,
+    "pricePerMonth": 25,
+    "primaryGoal": "Increase Revenue",
+    "appIdea": "Trading performance dashboard",
+    "launchTimeline": "ASAP / within 1 week"
+  }'
+
 # Test lead creation
 curl -X POST http://localhost:3000/api/leads \
   -H "Content-Type: application/json" \
   -d '{"clientSlug":"test","name":"Test","phone":"+1234567890"}'
-
-# Test blueprint generation
-curl -X POST http://localhost:3000/api/generate-blueprint \
-  -H "Content-Type: application/json" \
-  -d '{"businessName":"Test","niche":"contractor"}'
 ```
 
 ### Build Verification
@@ -203,6 +242,7 @@ bun run build
 2. Add `"use client"` only when needed
 3. Optimize database queries
 4. Use connection pooling (Neon)
+5. Use CSS transitions for animations (no external animation deps)
 
 ## Documentation
 

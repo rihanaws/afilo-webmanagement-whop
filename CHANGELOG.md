@@ -5,6 +5,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-19
+
+### Added
+
+- **Whop Interactive App Experience**
+  - 9-step interactive assessment wizard at `/experiences/[experienceId]`
+  - Community information confirmation (auto-detects community title)
+  - Niche selector grid (6 categories: SaaS/Tech/AI, Trading/Finance, Reselling, Coaching/Agency, Sports Betting, Gaming/Other)
+  - Active paying members slider (Range: 10 to 10,000+ with numeric input fallback)
+  - Average monthly price per member slider (Range: $5 to $500+/mo)
+  - Churn anchor screen with animated `$X,XXX / year` revenue loss badge and monthly breakdown
+  - Primary goal selector (6 buttons) + optional app idea textarea
+  - Launch timeline selector (ASAP / within 1 week, Within a month, 2 months+)
+  - Dynamic 3-card blueprint selection with loading state
+  - Conversion gate with "Skip the Line (Fast-Track in 3 Days)" and "I'll wait — keep my free spot" CTAs
+  - Confirmation modal on free-queue signup
+  - Lead logging to `/api/leads` with `serviceType: whop-queue:<niche>:<primaryGoal>`
+
+- **Blueprint Generation API (`/api/generate-blueprint`)**
+  - Complete rewrite to accept `FunnelState` payload
+  - Deterministic churn calculation: `annualLoss = memberCount × pricePerMonth × 0.12 × 12`
+  - Hybrid matrix + dynamic interpolation for blueprint synthesis
+  - 6 niche templates × 3 blueprint options (Operations Command Center, Engagement Engine, ROI & Growth Tracker)
+  - 6 primary goal modifiers that transform feature lists
+  - Dynamic `appIdea` injection into `whyItFits` rationale
+  - Full input validation returning 400 on invalid payloads
+
+- **New Types**
+  - `NicheCategory` - 6-option union type
+  - `PrimaryGoal` - 6-option union type
+  - `FunnelState` - 9-field wizard state interface
+  - `BlueprintOption` - Blueprint card interface
+  - `GenerateBlueprintResponse` - API response wrapper
+
+- **Experience Page (`/experiences/[experienceId]`)**
+  - Rewritten as server component wrapper
+  - Next.js 16 async params pattern (`Promise<{ experienceId: string }>`)
+  - Renders `WhopWizardEngine` with Whop Frosted dark styling
+  - `min-h-screen bg-[#0c0d0e]` layout
+
+- **Wizard Components**
+  - `components/whop-wizard/whop-wizard-engine.tsx` - Main client engine
+  - `components/whop-wizard/index.ts` - Barrel export
+  - Animated step transitions (CSS only, no external deps)
+  - Progress bar with step indicators
+  - Responsive design (375px mobile to 1440px desktop)
+
+### Changed
+
+- `app/api/generate-blueprint/route.ts` - Replaced site-blueprint generator with churn calculator + blueprint synthesizer
+- `app/experiences/[experienceId]/page.tsx` - Replaced static website config display with interactive wizard
+- `types/preview.ts` - Added wizard types (kept existing types for backward compatibility)
+
+---
+
 ## [1.0.0] - 2026-08-18
 
 ### Added

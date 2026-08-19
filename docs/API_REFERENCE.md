@@ -53,6 +53,18 @@ curl -X POST http://localhost:3000/api/leads \
   }'
 ```
 
+**Wizard queue lead (from "I'll wait" CTA):**
+```bash
+curl -X POST http://localhost:3000/api/leads \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clientSlug": "apex-traders",
+    "customerName": "Apex Traders",
+    "customerPhone": "whop_lead",
+    "serviceType": "whop-queue:Trading / Finance:Increase Revenue"
+  }'
+```
+
 ### Responses
 
 **200 OK:**
@@ -165,7 +177,7 @@ x-whop-signature: <signature>
 
 ## POST /api/generate-blueprint
 
-Generates a website blueprint based on business information.
+Calculates churn metrics and synthesizes 3 contextual blueprint options for the Whop assessment wizard.
 
 ### Request
 
@@ -177,12 +189,29 @@ Content-Type: application/json
 **Body:**
 ```typescript
 {
-  businessName: string;    // Required
-  niche: string;           // Required: "contractor" | "clinic" | "salon" | "restaurant"
-  domain?: string;         // Optional domain name
-  phone?: string;          // Optional phone number
-  email?: string;          // Optional email
-  address?: string;        // Optional address
+  communityName: string;       // Required - community name
+  niche: string;               // Required - one of:
+                               //   "SaaS / Tech / AI"
+                               //   "Trading / Finance"
+                               //   "Reselling"
+                               //   "Coaching / Agency"
+                               //   "Sports Betting"
+                               //   "Gaming / Other"
+  memberCount: number;         // Required - min 10
+  pricePerMonth: number;       // Required - min 5
+  primaryGoal: string;         // Required - one of:
+                               //   "Increase Revenue"
+                               //   "Reduce Churn"
+                               //   "Boost Engagement"
+                               //   "Automate Operations"
+                               //   "Build a Custom Tool"
+                               //   "Launch a SaaS"
+  appIdea: string;             // Required - may be empty string
+  launchTimeline: string;      // Required - one of:
+                               //   "ASAP / within 1 week"
+                               //   "Within a month"
+                               //   "2 months+"
+  selectedBlueprintId?: string; // Optional - "option_a" | "option_b" | "option_c"
 }
 ```
 
@@ -192,10 +221,13 @@ Content-Type: application/json
 curl -X POST http://localhost:3000/api/generate-blueprint \
   -H "Content-Type: application/json" \
   -d '{
-    "businessName": "Austin Apex Plumbing",
-    "niche": "contractor",
-    "domain": "austinapexplumbing.com",
-    "phone": "+15125550199"
+    "communityName": "Apex Traders",
+    "niche": "Trading / Finance",
+    "memberCount": 500,
+    "pricePerMonth": 25,
+    "primaryGoal": "Increase Revenue",
+    "appIdea": "Trading performance dashboard",
+    "launchTimeline": "ASAP / within 1 week"
   }'
 ```
 
@@ -205,37 +237,62 @@ curl -X POST http://localhost:3000/api/generate-blueprint \
 ```json
 {
   "success": true,
-  "data": {
-    "slug": "austin-apex-plumbing",
-    "businessName": "Austin Apex Plumbing",
-    "niche": "contractor",
-    "primaryColor": "#ea580c",
-    "secondaryColor": "#f97316",
-    "phone": "+15125550199",
-    "heroHeadline": "Fast, Reliable contractor You Can Trust",
-    "heroSubheadline": "Licensed and insured professionals serving your area. Call now for a free estimate.",
-    "services": [
-      { "name": "Emergency Repairs", "description": "24/7 same-day service" },
-      { "name": "Maintenance Plans", "description": "Preventative care programs" },
-      { "name": "Free Estimates", "description": "No-obligation quotes" }
-    ],
-    "reviews": [
-      {
-        "author": "Satisfied Customer",
-        "rating": 5,
-        "text": "Excellent service! Highly recommend to anyone looking for quality work."
-      }
-    ],
-    "ctaText": "Get a Free Quote",
-    "ctaUrl": "https://austinapexplumbing.com"
-  }
+  "churnMetrics": {
+    "annualLoss": 18000,
+    "monthlyLoss": 1500
+  },
+  "blueprints": [
+    {
+      "id": "option_a",
+      "badge": "Operations",
+      "title": "Portfolio Operations Hub",
+      "tagline": "Consolidate all your trading accounts, positions, and P&L into a unified command center.",
+      "features": [
+        "[Revenue Focus] Multi-broker account aggregation with real-time sync",
+        "[Revenue Focus] Position sizing calculator with risk-per-trade limits",
+        "[Revenue Focus] Daily P&L breakdown with win/loss ratio analytics",
+        "[Revenue Focus] Trade journal with screenshot capture and tagging",
+        "Upsell and cross-sell automation to maximize ARPU"
+      ],
+      "whyItFits": "Managing trades across multiple brokers and strategies creates chaos. This hub gives you one clean view of every position, every dollar at risk, and every trade outcome so you can focus on execution, not spreadsheets. Built specifically around your concept: \"Trading performance dashboard\"."
+    }
+  ]
 }
 ```
 
-**400 Bad Request:**
+**400 Bad Request (invalid fields):**
 ```json
 {
   "success": false,
-  "error": "Missing required fields: businessName, niche"
+  "churnMetrics": {
+    "annualLoss": 0,
+    "monthlyLoss": 0
+  },
+  "blueprints": [],
+  "error": "Invalid funnel state. Please check all fields and try again."
 }
 ```
+
+**500 Internal Server Error:**
+```json
+{
+  "success": false,
+  "churnMetrics": {
+    "annualLoss": 0,
+    "monthlyLoss": 0
+  },
+  "blueprints": [],
+  "error": "Internal server error. Please try again."
+}
+```
+
+### Churn Calculation
+
+The deterministic agency retention model:
+
+```typescript
+const annualLoss = Math.round(memberCount * pricePerMonth * 0.12 * 12);
+const monthlyLoss = Math.round(annualLoss / 12);
+```
+
+Based on a 12% annual churn benchmark for paid communities.

@@ -47,6 +47,9 @@ TWILIO_PHONE_NUMBER="+1234567890"
 # Whop (Membership)
 WHOP_API_KEY="whop_xxxxxxxxxxxxxxxxxxxxxxxx"
 WHOP_APP_ID="your_whop_app_id"
+
+# Whop (Optional - Fast-Track Checkout)
+# NEXT_PUBLIC_WHOP_CORE_PLAN_ID="plan_9B7W0HkHBLinl"
 ```
 
 ### 4. Initialize the database
@@ -93,17 +96,25 @@ curl -X POST http://localhost:3000/api/leads \
   }'
 ```
 
-### Generate a blueprint
+### Generate a blueprint (Whop wizard payload)
 
 ```bash
 curl -X POST http://localhost:3000/api/generate-blueprint \
   -H "Content-Type: application/json" \
   -d '{
-    "businessName": "Austin Apex Plumbing",
-    "niche": "contractor",
-    "domain": "austinapexplumbing.com"
+    "communityName": "Apex Traders",
+    "niche": "Trading / Finance",
+    "memberCount": 500,
+    "pricePerMonth": 25,
+    "primaryGoal": "Increase Revenue",
+    "appIdea": "Trading performance dashboard",
+    "launchTimeline": "ASAP / within 1 week"
   }'
 ```
+
+### Test the Whop wizard
+
+Visit [http://localhost:3000/experiences/test](http://localhost:3000/experiences/test) in your browser to run the 9-step interactive assessment wizard.
 
 ## Troubleshooting
 

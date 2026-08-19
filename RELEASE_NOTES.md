@@ -1,5 +1,62 @@
 # Release Notes
 
+## v1.1.0 (2026-08-19)
+
+**Whop Interactive App Experience**
+
+This release introduces the core monetization engine for Afilo — an interactive assessment wizard running inside Whop's creator hub that collects community metrics, anchors financial loss via a dynamic churn calculator, generates 3 AI-tailored software blueprints, and gates the build with a "~4 Week Free Queue" vs. "Skip the Line (Fast-Track Checkout)" funnel.
+
+### What's New
+
+#### Interactive Assessment Wizard (`/experiences/[experienceId]`)
+
+- **9-Step Flow** - From community info to conversion gate
+- **Community Info** - Auto-detects or accepts community title
+- **Niche Selector** - 6 interactive tiles with orange active borders
+- **Member Slider** - 10 to 10,000+ with numeric fallback
+- **Price Slider** - $5 to $500+/mo with numeric fallback
+- **Churn Anchor** - Animated `$X,XXX / year` revenue loss badge with monthly breakdown
+- **Goal Selector** - 6 primary goals + optional app idea textarea
+- **Timeline Selector** - ASAP / 1 month / 2+ months
+- **Blueprint Selection** - 3 AI-tailored cards with feature bullets
+- **Conversion Gate** - Skip-the-line fast-track (3 days) vs. free queue (~4 weeks)
+
+#### Blueprint Generation API
+
+- Deterministic churn model: `memberCount × pricePerMonth × 0.12 × 12`
+- 6 niche × 3 blueprint templates with contextual feature synthesis
+- 6 primary goal modifiers that transform feature lists
+- Dynamic app idea injection into rationale
+
+#### Conversion Funnel
+
+- **Primary CTA**: "Skip the Line (Fast-Track in 3 Days)" → Whop checkout
+- **Secondary CTA**: "I'll wait — keep my free spot" → confirmation modal + lead logging
+
+### Technical Highlights
+
+- Next.js 16 async route params (`Promise<{ experienceId: string }>`)
+- Animated CSS transitions (zero external animation deps)
+- Full input validation with 400 error responses
+- Responsive from 375px mobile to 1440px desktop
+- Type-safe throughout (TypeScript strict mode)
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/leads` | POST | Create lead + dispatch SMS |
+| `/api/whop-webhook` | POST | Handle Whop webhooks |
+| `/api/generate-blueprint` | POST | Churn calc + blueprint generation |
+
+### Environment Variables
+
+See [SETUP.md](docs/SETUP.md) for complete configuration. New variable:
+
+- `NEXT_PUBLIC_WHOP_CORE_PLAN_ID` - Whop plan ID for fast-track checkout (defaults to `plan_9B7W0HkHBLinl`)
+
+---
+
 ## v1.0.0 (2026-08-18)
 
 **Initial Production Release**
@@ -30,26 +87,12 @@ We're excited to announce the first production release of Afilo - a high-perform
 3. Initialize database: `bun run db:push && bun run db:seed`
 4. Start server: `bun run dev`
 
-### API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/leads` | POST | Create lead + dispatch SMS |
-| `/api/whop-webhook` | POST | Handle Whop webhooks |
-| `/api/generate-blueprint` | POST | Generate website blueprint |
-
-### Environment Variables
-
-See [SETUP.md](docs/SETUP.md) for complete configuration.
-
 ### Known Issues
 
 - Twilio SMS requires valid credentials (currently returns `smsDispatched: false`)
 - Whop webhook signature verification is placeholder (needs SDK integration)
 
 ### Upgrade Path
-
-This is the initial release. Future versions will include:
 
 - Enhanced dashboard analytics
 - More niche templates
