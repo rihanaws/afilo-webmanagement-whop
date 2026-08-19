@@ -69,7 +69,9 @@ model EditTicket {
   id          String       @id @default(cuid())
   clientId    String
   title       String
+  category    String       @default("Other")
   description String
+  urgent      Boolean      @default(false)
   status      TicketStatus @default(OPEN)
   slaDeadline DateTime
   createdAt   DateTime     @default(now())

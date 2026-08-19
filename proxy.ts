@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/dashboard")) {
+  if (pathname.startsWith("/dashboard") && process.env.NODE_ENV === "production") {
     const authHeader = request.headers.get("authorization");
     if (!authHeader) {
       return NextResponse.redirect(new URL("/", request.url));
